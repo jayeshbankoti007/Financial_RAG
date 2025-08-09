@@ -58,17 +58,25 @@ graph TB
     I --> J[Answer Generation]
     J --> K[Streaming Response]
     
-    subgraph "Embedding Models"
+    subgraph Embedding_Models
         L[BGE-M3]
         M[BGE-Large]
         N[E5-Large]
         O[Multilingual]
     end
     
-    subgraph "Answer Generation"
+    subgraph Answer_Generation
         P[GPT-4o-mini]
         Q[Fallback Mode]
     end
+
+    D --> L
+    D --> M
+    D --> N
+    D --> O
+
+    J --> P
+    J --> Q
 ```
 
 ---
