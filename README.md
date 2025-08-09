@@ -49,22 +49,22 @@ graph TB
     A[PDF Upload] --> B[Text Extraction]
     B --> C[Smart Chunking]
     C --> D[Embedding Generation]
-    D --> E[Vector Store (FAISS)]
-    
+    D --> E[Vector Store - FAISS]
+
     F[User Query] --> G[Query Optimization]
     G --> H[Embedding Search]
     E --> H
     H --> I[Context Retrieval]
     I --> J[Answer Generation]
     J --> K[Streaming Response]
-    
+
     subgraph Embedding_Models
         L[BGE-M3]
         M[BGE-Large]
         N[E5-Large]
         O[Multilingual]
     end
-    
+
     subgraph Answer_Generation
         P[GPT-4o-mini]
         Q[Fallback Mode]
@@ -77,6 +77,7 @@ graph TB
 
     J --> P
     J --> Q
+
 ```
 
 ---
