@@ -55,46 +55,47 @@ A production-ready RAG (Retrieval-Augmented Generation) system specifically desi
 
 ```mermaid
 graph TB
-    %% Upload and extraction
-    A[PDF Upload] --> B[Text Extraction]
+  %% Upload and extraction
+  A["PDF Upload"] --> B["Text Extraction"]
 
-    %% Chunking layers
-    B --> C[Token-based Chunking (fine-grained chunks)]
-    C --> D[SuperChunk Aggregation (thematic / global)]
+  %% Chunking layers
+  B --> C["Token-based Chunking (fine-grained chunks)"]
+  C --> D["SuperChunk Aggregation (thematic / global)"]
 
-    %% Embeddings and store
-    D --> E[Embedding Generation]
-    E --> F[Vector Store - FAISS HNSW Indexes]
+  %% Embeddings and store
+  D --> E["Embedding Generation"]
+  E --> F["Vector Store - FAISS HNSW Indexes"]
 
-    %% Separate FAISS indexes
-    F --> H[Superchunk HNSW Index]
-    F --> I[Chunk HNSW Index]
+  %% Separate FAISS indexes
+  F --> H["Superchunk HNSW Index"]
+  F --> I["Chunk HNSW Index"]
 
-    %% Query flow
-    J[User Query] --> K[Query Rewriter]
-    K --> L[Query Embedding]
-    L --> H  %% global search on superchunks
-    H --> M[Retrieve Top Superchunks]
-    M --> I  %% refine by searching chunk index within selected superchunks
-    I --> N[Context Retrieval]
-    N --> O[Answer Generation]
-    O --> P[Streaming Response]
+  %% Query flow
+  J["User Query"] --> K["Query Rewriter"]
+  K --> L["Query Embedding"]
+  L --> H
+  H --> M["Retrieve Top Superchunks"]
+  M --> I
+  I --> N["Context Retrieval"]
+  N --> O["Answer Generation"]
+  O --> P["Streaming Response"]
 
-    %% Embedding models
-    subgraph Embedding_Models
-        Q[BGE-M3]
-        R[BGE-Large]
-        S[E5-Large]
-        T[Multilingual]
-    end
+  %% Embedding models
+  subgraph Embedding_Models
+    Q["BGE-M3"]
+    R["BGE-Large"]
+    S["E5-Large"]
+    T["Multilingual"]
+  end
 
-    E --> Q
-    E --> R
-    E --> S
-    E --> T
+  E --> Q
+  E --> R
+  E --> S
+  E --> T
 
-    O --> U[GPT-4o-mini]
+  O --> U["GPT-4o-mini"]
 ```
+
 
 Note: I removed inline "%%" comments after node definitions (they caused the GitHub Mermaid parser error). Use node labels for short descriptions or put Mermaid comments on their own lines starting with `%%`.
 
