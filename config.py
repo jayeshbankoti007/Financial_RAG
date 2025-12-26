@@ -15,12 +15,20 @@ MODEL_OPTIONS = {
 }
 
 # Text processing settings
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 50
 BATCH_SIZE = 32
+# Super-Chunk Clustering Configuration
+MAX_CLUSTER_SIZE = 5  # Maximum number of base chunks per super-chunk (hard limit)
+MIN_CLUSTER_SIZE = 2  # Minimum chunks to form a cluster
+CLUSTERING_ALGORITHM = "hdbscan"  # Options: "hdbscan", "dbscan", "simple"
+CLUSTERING_METRIC = "cosine"  # Distance metric for clustering
+
+# Base chunk sizes remain the same
+CHUNK_SIZE = 250  # Base chunk size in tokens (200-300 recommended)
+CHUNK_OVERLAP = 50  # Overlap between base chunks
+
 
 # OpenAI settings
-OPENAI_MODEL = "gpt-4o-mini"
+OPENAI_MODEL = "gpt-4.1-nano"
 MAX_TOKENS = 800
 TEMPERATURE = 0.2
 TOP_P = 0.9
@@ -34,7 +42,7 @@ MAX_TOP_K = 30
 SAMPLE_QUESTIONS = [
     "How is revenue recognised under the accrual basis of accounting?",
     "What is GAAP?",
-    "What are the main components of a balance sheet?", 
+    "What are the main components of a balance sheet?",
     "Describe the process of closing entries at the end of the accounting period.?",
     "Where is retained earnings shown on the financial statements?",
 ]

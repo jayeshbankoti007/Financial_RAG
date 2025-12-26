@@ -18,13 +18,17 @@ A production-ready RAG (Retrieval-Augmented Generation) system specifically desi
 ### 🧠 **Advanced AI Architecture**
 - **Multiple Embedding Models**: Support for BAAI BGE, E5, and multilingual models
 - **Smart Query Optimization**: AI-powered query rewriting for better retrieval
-- **Hybrid Search**: Dense vector search with FAISS optimization
+- **Hybrid Search**: Dense vector search with FAISS optimization using HNSW for fast approximate nearest neighbors
+- **Two-layer Chunking (Thematic "super-plus super" chunking)**: Local token-based chunks plus aggregated superchunks for global-to-local retrieval
 - **Streaming Responses**: Real-time answer generation with GPT-4o-mini
 
 ### 📄 **Document Processing**
 - **Intelligent PDF Parsing**: Extract and clean text from complex financial documents
 - **Adaptive Chunking**: Model-specific chunk sizing (BGE-M3: 1500 tokens, others: 500 tokens)
 - **Context Preservation**: Smart overlap to maintain semantic continuity
+- **Two-layer Chunking Explained**:
+  - Stage 1: Token-based chunking (fine-grained local chunks).
+  - Stage 2: Thematic aggregation: combine several adjacent/related chunks into superchunks (global context). This enables a global retrieval pass (superchunk search) followed by a local retrieval pass (chunk search) for refined source selection.
 - **Multi-document Support**: Query across multiple uploaded documents
 
 ### 💡 **User Experience**
@@ -35,6 +39,11 @@ A production-ready RAG (Retrieval-Augmented Generation) system specifically desi
 - **Sample Questions**: Pre-loaded financial accounting queries
 
 ### ⚡ **Performance & Scalability**
+- **HNSW (FAISS)**: Adopted HNSWIndex for scalable, low-latency approximate nearest neighbor search. Notes:
+  - Normalize vectors (L2) before using inner-product or cosine with FAISS.
+  - Use contiguous float32 arrays: np.ascontiguousarray(emb.astype("float32")).
+  - Tune efConstruction (build-time) and efSearch (query-time) — higher efSearch improves recall at cost of latency.
+  - Maintain separate FAISS indexes for chunk-level and superchunk-level vectors to avoid rebuild/overwrite issues.
 - **GPU Acceleration**: CUDA support for faster embedding generation
 - **Batch Processing**: Optimized embedding generation with progress tracking
 - **Memory Efficient**: Smart resource management for large documents
@@ -47,37 +56,36 @@ A production-ready RAG (Retrieval-Augmented Generation) system specifically desi
 ```mermaid
 graph TB
     A[PDF Upload] --> B[Text Extraction]
-    B --> C[Smart Chunking]
-    C --> D[Embedding Generation]
-    D --> E[Vector Store - FAISS]
+    B --> C[Token-based Chunking]  %% fine-grained chunks
+    C --> D[SuperChunk Aggregation] %% thematic superchunks (global)
+    D --> E[Embedding Generation]
+    E --> F[Vector Store - FAISS HNSW Indexes]
 
-    F[User Query] --> G[Query Optimization]
-    G --> H[Embedding Search]
-    E --> H
-    H --> I[Context Retrieval]
-    I --> J[Answer Generation]
-    J --> K[Streaming Response]
+    F --> H[Superchunk HNSW Index]
+    F --> I[Chunk HNSW Index]
+
+    J[User Query] --> K[Query Rewriter]
+    K --> L[Query Embedding]
+    L --> H  %% global search on superchunks
+    H --> M[Retrieve Top Superchunks]
+    M --> I  %% refine by searching chunk index within selected superchunks
+    I --> N[Context Retrieval]
+    N --> O[Answer Generation]
+    O --> P[Streaming Response]
 
     subgraph Embedding_Models
-        L[BGE-M3]
-        M[BGE-Large]
-        N[E5-Large]
-        O[Multilingual]
+        Q[BGE-M3]
+        R[BGE-Large]
+        S[E5-Large]
+        T[Multilingual]
     end
 
-    subgraph Answer_Generation
-        P[GPT-4o-mini]
-        Q[Fallback Mode]
-    end
+    E --> Q
+    E --> R
+    E --> S
+    E --> T
 
-    D --> L
-    D --> M
-    D --> N
-    D --> O
-
-    J --> P
-    J --> Q
-
+    O --> U[GPT-4o-mini]
 ```
 
 ---
@@ -156,8 +164,8 @@ Sample Questions:
 # Available embedding models
 MODEL_OPTIONS = {
     "BGE M3 (Recommended)": "BAAI/bge-m3",              # 8K context, multilingual
-    "BGE Large": "BAAI/bge-large-en-v1.5",             # High performance
-    "E5 Large": "intfloat/e5-large-v2",                # Strong alternative  
+    "BGE Large": "BAAI/bge-large-en-v1.5",              # High performance
+    "E5 Large": "intfloat/e5-large-v2",                 # Strong alternative  
     "E5 Multilingual": "intfloat/multilingual-e5-large" # 100+ languages
 }
 ```
@@ -172,10 +180,18 @@ MODEL_CHUNK_CONFIGS = {
 }
 ```
 
+### HNSW & FAISS Settings (recommended)
+```python
+HNSW_M = 32
+HNSW_EF_CONSTRUCTION = 125
+HNSW_EF_SEARCH = 200  # increase for better recall at query time
+FAISS_METRIC = "inner_product"  # use after normalizing vectors (L2)
+```
+
 ### Advanced Settings
 ```python
 # Fine-tune in config.py
-CHUNK_SIZE = 500           # Default chunk size in tokens
+CHUNK_SIZE = 500           # Default chunk size in tokens (if not model-specific)
 CHUNK_OVERLAP = 50         # Overlap between chunks
 BATCH_SIZE = 32            # Embedding batch size
 MAX_TOKENS = 800           # GPT response length
@@ -194,11 +210,11 @@ financial-rag-system/
 ├── 📄 README.md                 # This file
 │
 ├── 📁 core/                     # Core RAG functionality
-│   ├── 📄 rag_system.py         # Main orchestrator
+│   ├── 📄 rag_system.py         # Main orchestrator — build once: embeddings + HNSW indexes
 │   ├── 📄 pdf_processor.py      # PDF text extraction
-│   ├── 📄 text_chunker.py       # Smart text chunking
-│   ├── 📄 embedding_manager.py  # Embedding generation
-│   ├── 📄 vector_store.py       # FAISS vector operations
+│   ├── 📄 text_chunker.py       # Token chunker + SuperChunk aggregator (two-layer)
+│   ├── 📄 embedding_manager.py  # Embedding generation (persist model, avoid reload per query)
+│   ├── 📄 vector_store.py       # FAISS HNSW vector operations (separate indexes for chunk & superchunk)
 │   └── 📄 answer_generator.py   # GPT answer generation
 │
 ├── 📁 models/                   # Data models
@@ -212,28 +228,26 @@ financial-rag-system/
 
 ## 🔬 **Technical Deep Dive**
 
-### Embedding Models Comparison
-| Model | Context Length | Performance | Use Case |
-|-------|---------------|-------------|----------|
-| BGE-M3 | 8,192 tokens | ⭐⭐⭐⭐⭐ | Best overall, multilingual |
-| BGE-Large | 512 tokens | ⭐⭐⭐⭐ | High accuracy, English |
-| E5-Large | 512 tokens | ⭐⭐⭐⭐ | Strong alternative |
-| E5-Multilingual | 512 tokens | ⭐⭐⭐ | 100+ languages |
+### Two-layer chunking (thematic "super-plus super" chunking)
+- Purpose: Combine local fine-grained semantic retrieval with global thematic retrieval.
+- Flow:
+  1. Token-level split -> produce local chunks with overlap.
+  2. Thematic aggregation -> group sequences of related chunks into superchunks (global summaries/contexts).
+  3. Query flow uses superchunk search first to get global context, then restricts/refines with chunk-level search inside selected superchunks for precise sourcing and better attribution.
+- Benefits: faster, focused retrieval; fewer chunk-level searches per query; improved accuracy for broad, thematic questions.
+
+### HNSW (FAISS) details & best practices
+- HNSW is approximate but fast for large collections; tune efSearch for recall.
+- Always normalize vectors for cosine/inner-product similarity (faiss.normalize_L2).
+- Keep indexes separate (chunk_index, superchunk_index) to avoid rebuilds and logical mixing.
+- Build indexes once during ingestion/setup; avoid rebuilding on each query.
+- If using multiprocessing or ThreadPools during embedding, persist models and avoid repeated load/unload to prevent semaphore leaks.
 
 ### Performance Benchmarks
-- **Processing Speed**: ~100 pages/minute
-- **Query Response**: <2 seconds average  
+- **Processing Speed**: ~100 pages/minute (varies with model & hardware)
+- **Query Response**: <2 seconds average (with HNSW tuned and embeddings cached)
 - **Memory Usage**: ~2GB for 1000-page document
 - **Cost**: ~$0.001 per query (GPT-4o-mini)
-
-### RAG Pipeline Steps
-1. **Document Ingestion**: PDF → Clean Text
-2. **Intelligent Chunking**: Context-aware splitting
-3. **Embedding Generation**: Vector representations  
-4. **Vector Storage**: FAISS indexing
-5. **Query Processing**: Semantic search
-6. **Answer Generation**: GPT synthesis
-7. **Source Attribution**: Reference tracking
 
 ---
 
@@ -252,22 +266,6 @@ financial-rag-system/
 > **Stockholders' Equity** (Page 48): The residual interest in assets after deducting liabilities, including contributed capital and retained earnings.
 
 **Sources Used:** Pages 45-48 from "Financial Accounting Fundamentals.pdf"
-
-</details>
-
-<details>
-<summary><strong>💰 "How is depreciation calculated?"</strong></summary>
-
-**Answer:**
-> The document describes several depreciation methods (Pages 78-82):
->
-> **Straight-Line Method**: (Cost - Salvage Value) ÷ Useful Life
-> **Double-Declining Balance**: 2 × (1 ÷ Useful Life) × Book Value  
-> **Units of Production**: (Cost - Salvage Value) × (Units Produced ÷ Total Expected Units)
->
-> The straight-line method is most commonly used for financial reporting due to its simplicity and compliance with matching principle.
-
-**Sources Used:** Pages 78-82 from "Intermediate Accounting.pdf"
 
 </details>
 
@@ -293,35 +291,6 @@ flake8 .
 mypy core/
 ```
 
-### Areas for Contribution
-- 🧪 **Testing**: Unit tests for core components
-- 🌐 **Internationalization**: Support for more languages
-- 🔍 **Search**: Hybrid search with keyword matching
-- 📊 **Analytics**: Query performance tracking
-- 🐳 **Deployment**: Docker and cloud deployment guides
-
----
-
-## 📈 **Roadmap**
-
-### Phase 1: Core Enhancements ✅
-- [x] Multiple embedding model support
-- [x] Streaming responses
-- [x] Model-specific chunk optimization
-- [x] Fallback answer generation
-
-### Phase 2: Advanced Features 🚧
-- [ ] **Hybrid Search**: Dense + sparse retrieval
-- [ ] **Multi-modal**: Support for charts/tables in PDFs
-- [ ] **Query Analytics**: Performance monitoring
-- [ ] **Batch Processing**: Multiple document upload
-
-### Phase 3: Enterprise Features 🔮
-- [ ] **API Interface**: REST API for integration
-- [ ] **User Management**: Multi-user support
-- [ ] **Document Management**: Versioning and organization
-- [ ] **Custom Models**: Fine-tuned embeddings
-
 ---
 
 ## 🐛 **Known Issues & Limitations**
@@ -339,11 +308,11 @@ mypy core/
 # Issue: CUDA out of memory
 # Solution: Set device to CPU in sidebar or reduce batch size
 
-# Issue: Slow embedding generation
-# Solution: Enable GPU acceleration or use smaller model
+# Issue: Slow embedding generation / repeated model loads
+# Solution: Persist SentenceTransformer (st.cache_resource or session_state) and avoid re-initializing on each query.
 
-# Issue: Poor answer quality
-# Solution: Try BGE-M3 model or increase chunk overlap
+# Issue: HNSW poor recall or -1 indices returned
+# Solution: Normalize vectors, ensure float32 contiguous arrays, and increase efSearch.
 ```
 
 ---
@@ -372,12 +341,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Email**: jayeshbankoti@gmail.com
 - **LinkedIn**: [Your Profile](https://linkedin.com/in/jayeshbankoti)
 - **Website**: [Website](https://jayeshbankoti.site)
-
----
-
-## 🌟 **Star History**
-
-[![Star History Chart](https://api.star-history.com/svg?repos=jayeshbankoti007/Financial_RAG&type=Date)](https://star-history.com/#jayeshbankoti007/Financial_RAG&Date)
 
 ---
 
