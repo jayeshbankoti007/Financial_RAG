@@ -55,15 +55,22 @@ A production-ready RAG (Retrieval-Augmented Generation) system specifically desi
 
 ```mermaid
 graph TB
+    %% Upload and extraction
     A[PDF Upload] --> B[Text Extraction]
-    B --> C[Token-based Chunking]  %% fine-grained chunks
-    C --> D[SuperChunk Aggregation] %% thematic superchunks (global)
+
+    %% Chunking layers
+    B --> C[Token-based Chunking (fine-grained chunks)]
+    C --> D[SuperChunk Aggregation (thematic / global)]
+
+    %% Embeddings and store
     D --> E[Embedding Generation]
     E --> F[Vector Store - FAISS HNSW Indexes]
 
+    %% Separate FAISS indexes
     F --> H[Superchunk HNSW Index]
     F --> I[Chunk HNSW Index]
 
+    %% Query flow
     J[User Query] --> K[Query Rewriter]
     K --> L[Query Embedding]
     L --> H  %% global search on superchunks
@@ -73,6 +80,7 @@ graph TB
     N --> O[Answer Generation]
     O --> P[Streaming Response]
 
+    %% Embedding models
     subgraph Embedding_Models
         Q[BGE-M3]
         R[BGE-Large]
@@ -87,6 +95,8 @@ graph TB
 
     O --> U[GPT-4o-mini]
 ```
+
+Note: I removed inline "%%" comments after node definitions (they caused the GitHub Mermaid parser error). Use node labels for short descriptions or put Mermaid comments on their own lines starting with `%%`.
 
 ---
 
