@@ -96,9 +96,6 @@ graph TB
   O --> U["GPT-4o-mini"]
 ```
 
-
-Note: I removed inline "%%" comments after node definitions (they caused the GitHub Mermaid parser error). Use node labels for short descriptions or put Mermaid comments on their own lines starting with `%%`.
-
 ---
 
 ## 📦 **Installation**
